@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة تحكم الليدر - استقبال الطلبات</title>
+    <style>
+        * {box-sizing: border-box;margin: 0;padding: 0;font-family: 'Segoe UI', Tahoma, Geneva, sans-serif;}
+        body {background: #f0f2f5;padding: 20px;}
+        
+        .header {
+            background: #00a0b0;
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        
+        .stat-card h3 {color: #00a0b0;font-size: 32px;margin-bottom: 5px;}
+        .stat-card p {color: #666;font-size: 14px;}
+        
+        .orders-container {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .order-card {
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            background: #fafafa;
+        }
+        
+        .order-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .order-info h4 {color: #333;margin-bottom: 5px;}
+        .order-info p {color: #666;font-size: 13px;}
+        
+        .order-items {
+            background: white;
+            padding: 12px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-size: 14px;
+            line-height: 1.8;
+        }
+        
+        .order-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        
+        .btn-call {background: #28a745;color: white;}
+        .btn-whatsapp {background: #25D366;color: white;}
+        .btn-done {background: #6c757d;color: white;}
+        
+        .empty-msg {
+            text-align: center;
+            color: #999;
+            padding: 50px 20px;
+            font-size: 18px;
+        }
+        
+        .refresh-btn {
+            background: #ff5e00;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div>
+            <h2>📦 لوحة تحكم الليدر</h2>
+            <p>استقبال وإدارة طلبات العملاء - نجع حمادي</p>
+        </div>
+        <button class="refresh-btn" onclick="loadOrders()">🔄 تحديث</button>
+    </div>
+
+    <div class="stats">
+        <div class="stat-card">
+            <h3 id="total-orders">0</h3>
+            <p>إجمالي الطلبات</p>
+        </div>
+        <div class="stat-card">
+            <h3 id="new-orders">0</h3>
+            <p>طلبات جديدة</p>
+        </div>
+    </div>
+
+    <div class="orders-container">
+        <h3 style="margin-bottom: 15px;">الطلبات الواردة</h3>
+        <div id="orders-list">
+            <div class="empty-msg">مفيش طلبات لسه... استنى العملاء يطلبوا</div>
+        </div>
+    </div>
+
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+    <script>
+        // بيانات Firebase بتاعتك
+        const firebaseConfig = {
+          apiKey: "AIzaSyDr6jzewfcVvF7EpQ0J_sZwBYt-55iLu1Q",
+          authDomain: "talabat-nagahammadi.firebaseapp.com",
+          databaseURL: "https://talabat-nagahammadi-default-rtdb.firebaseio.com",
+          projectId: "talabat-nagahammadi",
+          storageBucket: "talabat-nagahammadi.firebasestorage.app",
+          messagingSenderId: "692271626306",
+          appId: "1:692271626306:web:17c31b4bebd1a91d5fd5db"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        function loadOrders() {
+            db.ref('orders').on('value', snapshot => {
+                const orders = [];
+                
+                snapshot.forEach(child => {
+                    const order = child.val();
+                    order.id = child.key;
+                    // نعرض بس الطلبات اللي لسه متسلمتش
+                    if(!order.done) {
+                        orders.push(order);
+                    }
+                });
+
+                document.getElementById('total-orders').innerText = orders.length;
+                document.getElementById('new-orders').innerText = orders.length;
+
+                const ordersList = document.getElementById('orders-list');
+                
+                if(orders.length === 0) {
+                    ordersList.innerHTML = '<div class="empty-msg">مفيش طلبات جديدة 📭</div>';
+                    return;
+                }
+
+                ordersList.innerHTML = '';
+                orders.reverse().forEach((order) => {
+                    const itemsHTML = order.cart ? order.cart.map(item => `• ${item}`).join('<br>') : 'مفيش طلبات';
+                    
+                    ordersList.innerHTML += `
+                        <div class="order-card">
+                            <div class="order-header">
+                                <div class="order-info">
+                                    <h4>👤 ${order.name || '-'}</h4>
+                                    <p>📱 ${order.phone || '-'}</p>
+                                    <p>📍 ${order.address || '-'}</p>
+                                </div>
+                                <span style="color: #ff5e00;font-weight: bold;">جديد</span>
+                            </div>
+                            
+                            <div class="order-items">
+                                <b>الطلبات:</b><br>
+                                ${itemsHTML}
+                            </div>
+                            
+                            ${order.note ? `<div style="background: #fff3cd;padding: 10px;border-radius: 8px;margin: 10px 0;font-size: 13px;"><b>ملاحظة العميل:</b> ${order.note}</div>` : ''}
+                            
+                            <div class="order-actions">
+                                <button class="btn btn-call" onclick="callPhone('${order.phone}')">📞 اتصال</button>
+                                <button class="btn btn-whatsapp" onclick="openWhatsApp('${order.phone}')">💬 واتساب</button>
+                                <button class="btn btn-done" onclick="markDone('${order.id}')">✅ تم</button>
+                            </div>
+                        </div>
+                    `;
+                });
+            });
+        }
+
+        function markDone(orderId) {
+            if(confirm('تأكيد تم التوصيل؟ الطلب هيختفي من الشاشة')) {
+                db.ref('orders/' + orderId).update({done: true});
+                alert('تم تعليم الطلب كمُسلم');
+            }
+        }
+
+        function callPhone(phone) {
+            if(!phone) {
+                alert('مفيش رقم موبايل');
+                return;
+            }
+            // نشيل أي رموز ومسافات
+            let cleanPhone = phone.replace(/\D/g, '');
+            window.location.href = 'tel:' + cleanPhone;
+        }
+
+        function openWhatsApp(phone) {
+            if(!phone) {
+                alert('مفيش رقم موبايل');
+                return;
+            }
+            // نشيل أي مسافات أو رموز
+            let cleanPhone = phone.replace(/\D/g, '');
+            
+            // لو بيبدأ بـ 0 نشيله ونحط 20
+            if(cleanPhone.startsWith('0')) {
+                cleanPhone = '20' + cleanPhone.substring(1);
+            }
+            // لو بيبدأ بـ 1 على طول نزود 20
+            else if(cleanPhone.startsWith('1') && cleanPhone.length == 10) {
+                cleanPhone = '20' + cleanPhone;
+            }
+            // لو ناقص ومكتوب 2 بس نزود 0
+            else if(cleanPhone.startsWith('2') && cleanPhone.length == 11) {
+                cleanPhone = '0' + cleanPhone.substring(1);
+                cleanPhone = '20' + cleanPhone.substring(1);
+            }
+            
+            window.open(`https://wa.me/${cleanPhone}`, '_blank');
+        }
+
+        // تحميل الطلبات أول ما الصفحة تفتح + تحديث لحظي
+        loadOrders();
+    </script>
+</body>
+</html>
